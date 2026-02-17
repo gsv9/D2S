@@ -1,29 +1,34 @@
 module top(
     input clk,
-    input rst,
-    input BTNC,
+    input load,     // BTNC
+    input rst,      // BTNR
+    input start,    // BTNL
     input [7:0] SW,
 
-    output LED0,  // class
-    output LED1,  // done
-    output LED2,  // Load X
-    output LED3,  // Load Y
-    output LED4   // Load K
+    output LED0,    // class
+    output LED1,    // done
+    output LED2,    // Load X
+    output LED3,    // Load Y
+    output LED4     // Load K
 );
 
 /* -------- Button Edge Detection -------- */
-reg btnc_d;
+reg load_d, start_d;
 
-always @(posedge clk)
-    btnc_d <= BTNC;
+always @(posedge clk) begin
+    load_d  <= load;
+    start_d <= start;
+end
 
-wire btnc_pulse = BTNC & ~btnc_d;
+wire load_pulse  = load  & ~load_d;
+wire start_pulse = start & ~start_d;
 
 /* -------- Registers -------- */
-reg [7:0] X_reg, Y_reg;
+reg [7:0] X_reg;
+reg [7:0] Y_reg;
 reg K_reg;
 
-/* -------- Wires -------- */
+/* -------- Control Signals -------- */
 wire load_x, load_y, load_k;
 wire start_knn;
 wire knn_done;
@@ -33,18 +38,22 @@ wire class_out;
 user_fsm U_user (
     .clk(clk),
     .rst(rst),
-    .btnc_pulse(btnc_pulse),
+    .load_btn(load_pulse),
+    .start_btn(start_pulse),
     .knn_done(knn_done),
+
     .load_x(load_x),
     .load_y(load_y),
     .load_k(load_k),
     .start_knn(start_knn),
+
     .led2(LED2),
     .led3(LED3),
-    .led4(LED4)
+    .led4(LED4),
+    .done_led(LED1)
 );
 
-/* -------- Register Input Data -------- */
+/* -------- Load Data -------- */
 always @(posedge clk or posedge rst) begin
     if (rst) begin
         X_reg <= 0;
@@ -52,14 +61,9 @@ always @(posedge clk or posedge rst) begin
         K_reg <= 0;
     end
     else begin
-        if (load_x)
-            X_reg <= SW;
-
-        if (load_y)
-            Y_reg <= SW;
-
-        if (load_k)
-            K_reg <= SW[0];
+        if (load_x) X_reg <= SW;
+        if (load_y) Y_reg <= SW;
+        if (load_k) K_reg <= SW[0];
     end
 end
 
@@ -75,8 +79,6 @@ knn_core U_knn (
     .done(knn_done)
 );
 
-/* -------- LED Outputs -------- */
 assign LED0 = class_out;
-assign LED1 = knn_done;
 
 endmodule
