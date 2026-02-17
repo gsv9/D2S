@@ -1,84 +1,121 @@
-module top(
+module knn_core(
     input clk,
-    input load,     // BTNC
-    input rst,      // BTNR
-    input start,    // BTNL
-    input [7:0] SW,
+    input rst,
+    input start,
 
-    output LED0,    // class
-    output LED1,    // done
-    output LED2,    // Load X
-    output LED3,    // Load Y
-    output LED4     // Load K
+    input [7:0] x_in,
+    input [7:0] y_in,
+    input [2:0]k_in,
+
+    output class_out,
+    output done
 );
 
-/* -------- Button Edge Detection -------- */
-reg load_d, start_d;
+/* -------- Input Latching -------- */
+reg [7:0] x_reg, y_reg;
 
-always @(posedge clk) begin
-    load_d  <= load;
-    start_d <= start;
-end
-
-wire load_pulse  = load  & ~load_d;
-wire start_pulse = start & ~start_d;
-
-/* -------- Registers -------- */
-reg [7:0] X_reg;
-reg [7:0] Y_reg;
-reg K_reg;
-
-/* -------- Control Signals -------- */
-wire load_x, load_y, load_k;
-wire start_knn;
-wire knn_done;
-wire class_out;
-
-/* -------- User FSM -------- */
-user_fsm U_user (
-    .clk(clk),
-    .rst(rst),
-    .load_btn(load_pulse),
-    .start_btn(start_pulse),
-    .knn_done(knn_done),
-
-    .load_x(load_x),
-    .load_y(load_y),
-    .load_k(load_k),
-    .start_knn(start_knn),
-
-    .led2(LED2),
-    .led3(LED3),
-    .led4(LED4),
-    .done_led(LED1)
-);
-
-/* -------- Load Data -------- */
 always @(posedge clk or posedge rst) begin
     if (rst) begin
-        X_reg <= 0;
-        Y_reg <= 0;
-        K_reg <= 0;
+        x_reg <= 0;
+        y_reg <= 0;
     end
-    else begin
-        if (load_x) X_reg <= SW;
-        if (load_y) Y_reg <= SW;
-        if (load_k) K_reg <= SW[0];
+    else if (start) begin
+        x_reg <= x_in;
+        y_reg <= y_in;
     end
 end
 
-/* -------- KNN Core -------- */
-knn_core U_knn (
+/* -------- Internal Wires -------- */
+wire [3:0] addr;
+wire init;
+wire update;
+wire addr_enable;
+wire vote_enable;
+
+wire [7:0] xi, yi;
+wire class_i;
+
+wire [8:0] dist;
+
+wire c1, c2, c3, c4, c5;
+wire vote_result;
+
+/* -------- Address Counter -------- */
+addr_counter U1 (
     .clk(clk),
     .rst(rst),
-    .start(start_knn),
-    .x_in(X_reg),
-    .y_in(Y_reg),
-    .k_in(K_reg),
-    .class_out(class_out),
-    .done(knn_done)
+    .init(init),          // NEW
+    .addr_enable(addr_enable),
+    .addr(addr)
 );
 
-assign LED0 = class_out;
+/* -------- Training RAM -------- */
+ram U2 (
+    .clk(clk),
+    .addr(addr),
+    .xi(xi),
+    .yi(yi),
+    .class_i(class_i)
+);
+
+/* -------- Distance Engine -------- */
+dist_cal U3 (
+    .x(x_reg),            // FIXED
+    .y(y_reg),            // FIXED
+    .xi(xi),
+    .yi(yi),
+    .dist(dist)
+);
+
+/* -------- K Selector -------- */
+kclass U4 (
+    .clk(clk),
+    .rst(rst),
+    .init(init),          // NEW
+    .update(update),
+    .dist(dist),
+    .c_in(class_i),
+    .c1(c1),
+    .c2(c2),
+    .c3(c3),
+    .c4(c4),
+    .c5(c5)
+);
+
+/* -------- Voting Unit -------- */
+vote U5 (
+    .k_in(k_in),
+    .c1(c1),
+    .c2(c2),
+    .c3(c3),
+    .c4(c4),
+    .c5(c5),
+    .result(vote_result)
+);
+
+/* -------- Control FSM -------- */
+fsm U6 (
+    .clk(clk),
+    .rst(rst),
+    .start(start),
+    .addr(addr),
+    .init(init),          // NEW
+    .update(update),
+    .addr_enable(addr_enable),
+    .vote_enable(vote_enable),
+    .done(done)
+);
+
+/* -------- Output Register -------- */
+reg result_reg;
+
+always @(posedge clk or posedge rst) begin
+    if (rst)
+        result_reg <= 0;
+    else if (vote_enable)
+        result_reg <= vote_result;
+end
+
+assign class_out = result_reg;
 
 endmodule
