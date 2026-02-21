@@ -5,7 +5,7 @@
 ![Board](https://img.shields.io/badge/Board-ZedBoard-red)
 ![Clock](https://img.shields.io/badge/Clock-100MHz-purple)
 ![Award](https://img.shields.io/badge/Award-1st%20Place-gold)
-![Stars](https://img.shields.io/github/stars/gsv9/D2S?style=social)
+
 
 A real-time, hardware-accelerated **K-Nearest Neighbour (KNN)** classification engine implemented entirely in **Verilog HDL** on the **Xilinx ZedBoard (Zynq-7000 SoC)**.
 
