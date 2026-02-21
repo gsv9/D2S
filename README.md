@@ -124,7 +124,7 @@ Floating-point arithmetic significantly increases FPGA area consumption.
 
 🥇 **1st Place – Dream to Start**  
 🎉 Tantrotsav 2026  
-💰 ₹10,000 Prize  
+💰 ₹10,000 Prize
 
 ---
 
